@@ -3,6 +3,7 @@ import numpy as np
 import joblib
 from sklearn.preprocessing import StandardScaler
 import logging
+import os
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -12,7 +13,11 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
 # Load the trained model
-model = joblib.load('models/churn_model.joblib')
+try:
+    model = joblib.load('models/churn_model.joblib')
+except Exception as e:
+    logger.error(f"Error loading model: {str(e)}")
+    model = None
 
 @app.route('/health', methods=['GET'])
 def health_check():
@@ -27,6 +32,9 @@ def predict():
     Endpoint for making predictions
     """
     try:
+        if model is None:
+            return jsonify({'error': 'Model not loaded'}), 500
+            
         # Get data from request
         data = request.get_json()
         
@@ -42,7 +50,7 @@ def predict():
             'payment_method': data.get('payment_method')
         }
         
-        # Preprocess the input (similar to training preprocessing)
+        # Preprocess the input
         processed_features = preprocess_input(features)
         
         # Make prediction
@@ -64,8 +72,7 @@ def preprocess_input(features):
     """
     Preprocess the input features to match the training data format
     """
-    # Create feature vector (this should match your training preprocessing)
-    # This is a simplified version - you should match your training preprocessing exactly
+    # Create feature vector
     feature_vector = np.array([
         features['age'],
         features['tenure'],
@@ -79,5 +86,7 @@ def preprocess_input(features):
     
     return feature_vector.flatten()
 
+# For Vercel deployment
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True) 
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port) 
